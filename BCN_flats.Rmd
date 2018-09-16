@@ -13,6 +13,7 @@ library(ggplot2)
 library(forcats)
 library(stringr)
 library(ggrepel)
+library(sf)
 ```
 
 ###Importing files
@@ -75,7 +76,7 @@ table <- select(table,district=district.x, code, pop,flats)
 Some additional stats
 ```{r stats, warning=F, message=F}
 #average HH size in cataluna=2.49 Source: http://www.ine.es/en/prensa/ech_2017_en.pdf
-table <- table %>% 
+table2 <- table %>% 
   mutate(loc_flats=round((pop/2.49),digits=0)) %>% 
   mutate(ratioPer100=round((flats*100)/loc_flats,digits=2))
 table <- arrange(table, desc(pop))
@@ -107,7 +108,7 @@ ggplot(barrio,
 
 Nr of tourist housing VS local flats, per district  
 ```{r graph2, warning=F, message=F, echo=F}
-ggplot(table,
+ggplot(table2,
        aes(x=loc_flats, y=flats))+
   geom_point(aes(size=ratioPer100),color="red")+
   expand_limits(x = 0, y = 0) +
@@ -123,3 +124,23 @@ ggplot(table,
         title=element_text(color="grey25",size=12,face="bold"))
         
 ```
+###Map
+```{r map1, warning=F, message=F, echo=F}
+bcn_shp <- "bcn_district/bcn_districte_ed50_shp.shp"
+bcn_geo <- st_read(bcn_shp)
+
+#fixing codes in data table to factor in same level as 
+table2$code<-as.character(table2$code)
+table2$code<- str_c("0",table2$code)
+table2$code<- str_replace(table2$code,"010","10")
+table2$code<-as.factor(table2$code)
+
+dist_data <- left_join(bcn_geo, table2,
+                          by=c("c_distri"="code"))
+
+ggplot(dist_data) + 
+  geom_sf(aes(fill=ratioPer100), color="white")+
+  scale_fill_distiller(palette="Reds", direction=1, name="Nr of tourist flats") +
+  labs(title="How many tourist flats exist for every 100 local flats?", subtitle="in each district of Barcelona", caption="Source: Barcelona's City Hall Open Data Service")+
+  theme_void()+
+  theme(panel.grid.major = element_line(colour = 'transparent'))
